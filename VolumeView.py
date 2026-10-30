@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QPushButton, QFileDialog, QMessageBox
+from PySide6.QtWidgets import *
 from pyvistaqt import QtInteractor
 import pyqtgraph as pqg
 from VolumeViewModel import *
@@ -13,7 +13,7 @@ class VolumeView(QWidget):
         self.vm = VolumeViewModel()
         self.dimVoxel = (0.5, 0.5, 0.5)
 
-        # Qui sotto sta il layout principale
+        """ Qui sotto sta il layout principale """
         self.main_layout = QVBoxLayout(self)#anche questa è una scatola vuota
 
         self.import_btn = QPushButton("Import .tiff")
@@ -43,12 +43,38 @@ class VolumeView(QWidget):
         for view in [self.view_sliceX, self.view_sliceY, self.view_sliceZ]:
             view.ui.roiBtn.hide()
             view.ui.menuBtn.hide()
+
+        """
+        UNWRAPPING
+        """
+        self.unwrapping_btn = QPushButton("Unwrap Faces")
+        self.unwrapping_btn.setEnabled(False)
+        self.main_layout.addWidget(self.unwrapping_btn)
+
+        self.unwrapContainer = QWidget()#il contenitore delle 4
+        self.unwrap_layout = QHBoxLayout(self.unwrapContainer)
+        self.unwrap_layout.setContentsMargins(0,0,0,0)
+        self.unwrapped_views = []
+        for _ in range(4):
+            this_view = pqg.ImageView()
+            view.ui.roiBtn.hide()
+            view.ui.menuBtn.hide()
+            self.unwrap_layout.addWidget(view)
+            self.unwrapped_views.append(this_view)
+
+        self.main_layout.addWidget(self.unwrapContainer)
+        self.unwrapContainer.hide()#per nasconderlo all'avvio
+
         """
         CONNESSIONI
         """
         self.import_btn.clicked.connect(self._open_file_dialog)
         self.vm.volume_loaded.connect(self.setGridImage)
-        self.vm.error_occurred.connect(self.show_popup_error_occurred)#FIXME cosa ci metto per l'errore?
+
+        self.unwrapping_btn.clicked(self.vm.unwrap_current_volume)
+        self.vm.volume_unwrapped.connect(self.show_unwrapped_image)
+
+        self.vm.error_occurred.connect(self.show_popup_error_occurred)
 
     
     def _open_file_dialog(self):
@@ -59,20 +85,37 @@ class VolumeView(QWidget):
         if file_path:
             self.vm.load_tiff(file_path)#funzione nel ViewModel
 
-    
     def setGridImage(self, tiff_volume_array : object): #questa funzione si occupera di proiettare le sezioni dell'immagine .tiff in tutte le sue prospettive
+        self.unwrapContainer.hide()
+        #Settaggio del 2D
         import numpy as np
         self.view_sliceX.setImage(tiff_volume_array) #letteralmente un setter
         self.view_sliceY.setImage(np.transpose(tiff_volume_array, (1, 0, 2)))
         self.view_sliceZ.setImage(np.transpose(tiff_volume_array, (2, 0, 1)))
 
+        #Settaggio del 3D
+        self.view_3d.clear()
+        self.view_3d.set_background("black")
+
         render3D = pv.ImageData()
-        render3D.tiff_volume_array.shape
+        # Nota: Numpy ordina gli assi (Z, Y, X), mentre PyVista usa (X, Y, Z). 
+        # Invertiamo le dimensioni per evitare crash o geometrie distorte
+        render3D.dimensions = tiff_volume_array.shape[::-1]
         render3D.spacing = self.dimVoxel
 
         render3D.point_data["values"] = tiff_volume_array.flatten(order = "F")#il valore di ogni cella del render3D verrà equiparato al rispettivo della matrice 3D
-        self.view_3d.add_volume(render3D, cmap = "bone") # comando che crea l'area 3D interagibile come vogliamo noi
+        self.view_3d.add_volume(render3D, cmap = "bone", opacity = "linear") # comando che crea l'area 3D interagibile come vogliamo noi
+
+        self.view_3d.reset_camera()#per centrare la camera sul pezzo di legno
+        self.view_3d.update()#forza il refresh visivo
 
     def show_popup_error_occurred(self, msg: str):
         QMessageBox.critical(self, "Errore", msg)
-    
+
+    def show_unwrapped_image(self, faces_list: list):
+        import numpy as np
+
+        for i, face_array in enumerate(faces_list):
+            self.unwrapped_views[i].setImage(face_array)#sono quattro spazi vuoti che vengono riempiti proprio come accade al momento del caricamento del file
+
+        self.unwrapContainer.show()
