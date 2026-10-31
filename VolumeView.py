@@ -57,9 +57,9 @@ class VolumeView(QWidget):
         self.unwrapped_views = []
         for _ in range(4):
             this_view = pqg.ImageView()
-            view.ui.roiBtn.hide()
-            view.ui.menuBtn.hide()
-            self.unwrap_layout.addWidget(view)
+            this_view.ui.roiBtn.hide()
+            this_view.ui.menuBtn.hide()
+            self.unwrap_layout.addWidget(this_view)
             self.unwrapped_views.append(this_view)
 
         self.main_layout.addWidget(self.unwrapContainer)
@@ -71,7 +71,7 @@ class VolumeView(QWidget):
         self.import_btn.clicked.connect(self._open_file_dialog)
         self.vm.volume_loaded.connect(self.setGridImage)
 
-        self.unwrapping_btn.clicked(self.vm.unwrap_current_volume)
+        self.unwrapping_btn.clicked.connect(self.vm.unwrap_current_volume)
         self.vm.volume_unwrapped.connect(self.show_unwrapped_image)
 
         self.vm.error_occurred.connect(self.show_popup_error_occurred)
@@ -97,6 +97,8 @@ class VolumeView(QWidget):
         self.view_3d.clear()
         self.view_3d.set_background("black")
 
+        #FIXME: momentaneamente disattivato poiché non funzionante/non testabile
+        """
         render3D = pv.ImageData()
         # Nota: Numpy ordina gli assi (Z, Y, X), mentre PyVista usa (X, Y, Z). 
         # Invertiamo le dimensioni per evitare crash o geometrie distorte
@@ -108,6 +110,8 @@ class VolumeView(QWidget):
 
         self.view_3d.reset_camera()#per centrare la camera sul pezzo di legno
         self.view_3d.update()#forza il refresh visivo
+        """
+        self.unwrapping_btn.setEnabled(True)
 
     def show_popup_error_occurred(self, msg: str):
         QMessageBox.critical(self, "Errore", msg)

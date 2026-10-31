@@ -28,13 +28,13 @@ class VolumeViewModel(QObject):
 
         try:
             # Slicing delle 4 facce esterne come hai richiesto
-            # FIXME è sicuro che la matrice sia fatta così? Non va tipo normalizzata?
-            face_1 = self._current_volume[:, 0, :]
-            face_2 = self._current_volume[:, :, 0]
-            face_3 = self._current_volume[:, -1, :]
-            face_4 = self._current_volume[:, :, -1]
+            # NOTA: PyQtGraph gestisce in automatico la normalizzazione, quindi la matrice può subito essere gestita come segue
+            face_1 = self.current_volume[:, 0, :]
+            face_2 = self.current_volume[:, :, 0]
+            face_3 = self.current_volume[:, -1, :]
+            face_4 = self.current_volume[:, :, -1]
             
             # Emettiamo la lista delle 4 facce
-            self.unwrapped_ready.emit([face_1, face_2, face_3, face_4])
+            self.volume_unwrapped.emit([face_1, face_2, face_3, face_4])
         except Exception as e:
             self.error_occurred.emit(f"Errore durante l'unwrap: {str(e)}")
