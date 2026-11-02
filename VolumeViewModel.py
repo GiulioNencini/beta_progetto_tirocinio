@@ -11,19 +11,17 @@ class VolumeViewModel(QObject):
     def __init__(self):
         super().__init__()
         self.current_volume = None
-        #FIXME allocare import e export manager se necessario
 
     def _loadTiffWithCheck(self, file_path: str):
         self.current_volume = tifffile.imread(file_path)
         if len(self.current_volume.shape) != 3:
             raise mex.InvalidTiffShape()
 
-
     @Slot()
     def load_tiff(self, file_path: str):
         try:
             self._loadTiffWithCheck(file_path)
-            print(f"Shape del TIFF: {self.current_volume.shape}")
+            #print(f"Shape del TIFF: {self.current_volume.shape}")
             self.volume_loaded.emit(self.current_volume)
         except Exception as e:
             self.error_occurred.emit(f"Errore durante l'importazione: {str(e)}")

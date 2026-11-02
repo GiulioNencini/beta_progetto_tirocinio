@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import *
+from PySide6.QtCore import Qt
 from pyvistaqt import QtInteractor
 import pyqtgraph as pqg
 from VolumeViewModel import *
@@ -15,7 +16,7 @@ def create_titled_view(title_text, layout, grid, col_grid, row_grid):
     #qui si inizializza l'etichetta del titolo, con tanto di STILE
     tit_lbl = QLabel(title_text)
     tit_lbl.setStyleSheet("background-color: #333; color: white; font-weight: bold; padding: 4px;")
-    #tit_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)#FIXME: non mi risulta che esista questo Qt
+    tit_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(tit_lbl)
 
     view = pqg.ImageView()
@@ -31,9 +32,24 @@ class VolumeView(QWidget):
         super().__init__()
         self.vm = VolumeViewModel()
         self.dimVoxel = (0.5, 0.5, 0.5)
+        """
+        PRESETTING per rendere scorrevoli le finestre
+        """
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)#larghezza adattabile
+
+        # contenitore generale, consente di "simulare una pagina web scorrevole"
+        self.main_content_scrollable_widget = QWidget()
+        self.main_content_scrollable_widget.setMinimumHeight(1000)
 
         """ Qui sotto sta il layout principale """
-        self.main_layout = QVBoxLayout(self)#anche questa è una scatola vuota
+        self.main_layout = QVBoxLayout(self.main_content_scrollable_widget)#anche questa è una scatola vuota
+
+        self.scroll_area.setWidget(self.main_content_scrollable_widget)
+
+        window_layout = QVBoxLayout(self)
+        window_layout.setContentsMargins(0, 0, 0, 0)
+        window_layout.addWidget(self.scroll_area)
 
         self.import_btn = QPushButton("Import .tiff")
         self.main_layout.addWidget(self.import_btn)
@@ -68,8 +84,6 @@ class VolumeView(QWidget):
         self.grid.setColumnStretch(0, 1)
         self.grid.setColumnStretch(1, 1)
 
-
-
         #FOR per nascondere i menù superflui
         for view in [self.view_sliceX, self.view_sliceY, self.view_sliceZ]:
             view.ui.roiBtn.hide()
@@ -83,6 +97,7 @@ class VolumeView(QWidget):
         self.main_layout.addWidget(self.unwrapping_btn)
 
         self.unwrapContainer = QWidget()#il contenitore delle 4
+        self.unwrapContainer.setMinimumHeight(300)
         self.unwrap_layout = QHBoxLayout(self.unwrapContainer)
         self.unwrap_layout.setContentsMargins(0,0,0,0)
         self.unwrapped_views = []
@@ -107,8 +122,6 @@ class VolumeView(QWidget):
 
         self.vm.error_occurred.connect(self._show_popup_error_occurred)
 
-
-    
     def _open_file_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(self, 
                                                    "Select .tiff volume", 
@@ -121,9 +134,15 @@ class VolumeView(QWidget):
         self.unwrapContainer.hide()
         #Settaggio del 2D
         import numpy as np
+        
         self.view_sliceX.setImage(tiff_volume_array) #letteralmente un setter
         self.view_sliceY.setImage(np.transpose(tiff_volume_array, (1, 0, 2)))
         self.view_sliceZ.setImage(np.transpose(tiff_volume_array, (2, 0, 1)))
+
+        """
+        self.view_sliceX.getView().invertX(True)
+        self.view_sliceX.getImageItem().setRotation(90)
+        """
 
         #Settaggio del 3D
         self.view_3d.clear()
