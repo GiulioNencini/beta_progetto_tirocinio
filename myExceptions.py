@@ -1,0 +1,2 @@
+class InvalidTiffShape(Exception):
+    pass

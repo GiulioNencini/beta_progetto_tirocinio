@@ -7,6 +7,25 @@ import pyvista as pv
 #Mettere i pulsanti per l'import del file, che si colleghino ad update_volumes
 #Qui andrà imread
 
+def create_titled_view(title_text, layout, grid, col_grid, row_grid):
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(2, 2 ,2, 2)
+
+    #qui si inizializza l'etichetta del titolo, con tanto di STILE
+    tit_lbl = QLabel(title_text)
+    tit_lbl.setStyleSheet("background-color: #333; color: white; font-weight: bold; padding: 4px;")
+    #tit_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)#FIXME: non mi risulta che esista questo Qt
+    layout.addWidget(tit_lbl)
+
+    view = pqg.ImageView()
+    view.ui.roiBtn.hide()
+    view.ui.menuBtn.hide()
+    layout.addWidget(view)
+
+    grid.addWidget(container, row_grid, col_grid)
+    return view
+
 class VolumeView(QWidget):
     def __init__(self):
         super().__init__()
@@ -29,6 +48,7 @@ class VolumeView(QWidget):
 
         # Gli widget delle proiezioni 2D, stesso discorso: prima sono creati e poi sono aggiunti alla griglia
         # Queste ImageView sono tuttavia ancora vuote, verranno riempite solo al momento del caricamento del file .tiff (vedi funzione sotto)
+        """
         self.view_sliceX = pqg.ImageView()
         self.grid.addWidget(self.view_sliceX, 0, 1)
 
@@ -37,6 +57,17 @@ class VolumeView(QWidget):
 
         self.view_sliceZ = pqg.ImageView()
         self.grid.addWidget(self.view_sliceZ, 1, 1)
+        """
+
+        self.view_sliceX = create_titled_view("Vista Asse X (Sagittale)", self.layout, self.grid, 0, 1)
+        self.view_sliceY = create_titled_view("Vista Asse Y (Coronale)", self.layout, self.grid, 1, 0)
+        self.view_sliceZ = create_titled_view("Vista Asse Z (Assiale)", self.layout, self.grid, 1, 1)
+
+        self.grid.setRowStretch(0, 1)
+        self.grid.setRowStretch(1, 1)
+        self.grid.setColumnStretch(0, 1)
+        self.grid.setColumnStretch(1, 1)
+
 
 
         #FOR per nascondere i menù superflui
@@ -69,12 +100,13 @@ class VolumeView(QWidget):
         CONNESSIONI
         """
         self.import_btn.clicked.connect(self._open_file_dialog)
-        self.vm.volume_loaded.connect(self.setGridImage)
+        self.vm.volume_loaded.connect(self._setGridImage)
 
         self.unwrapping_btn.clicked.connect(self.vm.unwrap_current_volume)
-        self.vm.volume_unwrapped.connect(self.show_unwrapped_image)
+        self.vm.volume_unwrapped.connect(self._show_unwrapped_image)
 
-        self.vm.error_occurred.connect(self.show_popup_error_occurred)
+        self.vm.error_occurred.connect(self._show_popup_error_occurred)
+
 
     
     def _open_file_dialog(self):
@@ -85,7 +117,7 @@ class VolumeView(QWidget):
         if file_path:
             self.vm.load_tiff(file_path)#funzione nel ViewModel
 
-    def setGridImage(self, tiff_volume_array : object): #questa funzione si occupera di proiettare le sezioni dell'immagine .tiff in tutte le sue prospettive
+    def _setGridImage(self, tiff_volume_array : object): #questa funzione si occupera di proiettare le sezioni dell'immagine .tiff in tutte le sue prospettive-
         self.unwrapContainer.hide()
         #Settaggio del 2D
         import numpy as np
@@ -113,13 +145,11 @@ class VolumeView(QWidget):
         """
         self.unwrapping_btn.setEnabled(True)
 
-    def show_popup_error_occurred(self, msg: str):
+    def _show_popup_error_occurred(self, msg: str):
         QMessageBox.critical(self, "Errore", msg)
 
-    def show_unwrapped_image(self, faces_list: list):
-        import numpy as np
-
-        for i, face_array in enumerate(faces_list):
-            self.unwrapped_views[i].setImage(face_array)#sono quattro spazi vuoti che vengono riempiti proprio come accade al momento del caricamento del file
-
+    def _show_unwrapped_image(self, faces_list: list):
         self.unwrapContainer.show()
+        for i, face_array in enumerate(faces_list):
+            #autoRange serve per orientare correttamente le proiezioni lungo l'asse Z
+            self.unwrapped_views[i].setImage(face_array, autoRange = True)#sono quattro spazi vuoti che vengono riempiti proprio come accade al momento del caricamento del file
