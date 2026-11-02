@@ -8,7 +8,7 @@ import pyvista as pv
 #Mettere i pulsanti per l'import del file, che si colleghino ad update_volumes
 #Qui andrà imread
 
-def create_titled_view(title_text, layout, grid, col_grid, row_grid):
+def create_titled_view(title_text, grid, col_grid, row_grid):
     container = QWidget()
     layout = QVBoxLayout(container)
     layout.setContentsMargins(2, 2 ,2, 2)
@@ -19,13 +19,21 @@ def create_titled_view(title_text, layout, grid, col_grid, row_grid):
     tit_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(tit_lbl)
 
+    btn_layout = QHBoxLayout()
+    left_rot_btn = QPushButton("Ruota 90° sx")
+    right_rot_btn = QPushButton("Ruota 90° dx")
+    btn_layout.addWidget(left_rot_btn)
+    btn_layout.addWidget(right_rot_btn)
+    layout.addLayout(btn_layout)
+
     view = pqg.ImageView()
     view.ui.roiBtn.hide()
     view.ui.menuBtn.hide()
     layout.addWidget(view)
 
     grid.addWidget(container, row_grid, col_grid)
-    return view
+
+    return view, left_rot_btn, right_rot_btn
 
 class VolumeView(QWidget):
     def __init__(self):
@@ -75,9 +83,9 @@ class VolumeView(QWidget):
         self.grid.addWidget(self.view_sliceZ, 1, 1)
         """
 
-        self.view_sliceX = create_titled_view("Vista Asse X (Sagittale)", self.layout, self.grid, 0, 1)
-        self.view_sliceY = create_titled_view("Vista Asse Y (Coronale)", self.layout, self.grid, 1, 0)
-        self.view_sliceZ = create_titled_view("Vista Asse Z (Assiale)", self.layout, self.grid, 1, 1)
+        self.view_sliceX, self.btn_X_left, self.btn_X_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 0, 1)
+        self.view_sliceY, self.btn_Y_left, self.btn_Y_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 1, 0)
+        self.view_sliceZ, self.btn_Z_left, self.btn_Z_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 1)
 
         self.grid.setRowStretch(0, 1)
         self.grid.setRowStretch(1, 1)
@@ -116,6 +124,15 @@ class VolumeView(QWidget):
         """
         self.import_btn.clicked.connect(self._open_file_dialog)
         self.vm.volume_loaded.connect(self._setGridImage)
+
+        self.btn_X_left.clicked.connect(lambda: self._rotate_view(self.view_sliceX, -90))
+        self.btn_X_right.clicked.connect(lambda: self._rotate_view(self.view_sliceX, 90))
+        
+        self.btn_Y_left.clicked.connect(lambda: self._rotate_view(self.view_sliceY, -90))
+        self.btn_Y_right.clicked.connect(lambda: self._rotate_view(self.view_sliceY, 90))
+        
+        self.btn_Z_left.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, -90))
+        self.btn_Z_right.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, 90))
 
         self.unwrapping_btn.clicked.connect(self.vm.unwrap_current_volume)
         self.vm.volume_unwrapped.connect(self._show_unwrapped_image)
@@ -163,6 +180,11 @@ class VolumeView(QWidget):
         self.view_3d.update()#forza il refresh visivo
         """
         self.unwrapping_btn.setEnabled(True)
+
+    def _rotate_view(self, rotating_view, degrees):
+        item = rotating_view.getImageItem()
+        current_rotation = item.rotation()
+        item.setRotation((current_rotation + degrees) % 360)
 
     def _show_popup_error_occurred(self, msg: str):
         QMessageBox.critical(self, "Errore", msg)
