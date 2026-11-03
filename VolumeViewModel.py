@@ -1,6 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import tifffile
 import myExceptions as mex
+
 class VolumeViewModel(QObject):
     volume_loaded = Signal(object)
 
@@ -23,10 +24,10 @@ class VolumeViewModel(QObject):
             self._loadTiffWithCheck(file_path)
             #print(f"Shape del TIFF: {self.current_volume.shape}")
             self.volume_loaded.emit(self.current_volume)
-        except Exception as e:
-            self.error_occurred.emit(f"Errore durante l'importazione: {str(e)}")
         except mex.InvalidTiffShape as e:
             self.error_occurred.emit(f"Il file tiff caricato ha una shape non valida: IMPOSSIBILE PROCESSARE")
+        except Exception as e:
+            self.error_occurred.emit(f"Errore durante l'importazione: {str(e)}")
 
     @Slot()
     def unwrap_current_volume(self):

@@ -5,13 +5,10 @@ import pyqtgraph as pqg
 from VolumeViewModel import *
 import pyvista as pv
 
-#Mettere i pulsanti per l'import del file, che si colleghino ad update_volumes
-#Qui andrà imread
-
-def create_titled_view(title_text, grid, col_grid, row_grid):
+def create_titled_view(title_text, grid, col_in_grid, row_in_grid):
     container = QWidget()
     layout = QVBoxLayout(container)
-    layout.setContentsMargins(2, 2 ,2, 2)
+    layout.setContentsMargins(3, 3 ,3, 3)
 
     #qui si inizializza l'etichetta del titolo, con tanto di STILE
     tit_lbl = QLabel(title_text)
@@ -19,29 +16,37 @@ def create_titled_view(title_text, grid, col_grid, row_grid):
     tit_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(tit_lbl)
 
-    btn_layout = QHBoxLayout()
+    layout_of_btns = QHBoxLayout()
+
+    center_image_btn = QPushButton("Centra l'immagine")
+    center_image_btn.setEnabled(False)
+    layout_of_btns.addWidget(center_image_btn)
     left_rot_btn = QPushButton("Ruota 90° sx")
     right_rot_btn = QPushButton("Ruota 90° dx")
-    btn_layout.addWidget(left_rot_btn)
-    btn_layout.addWidget(right_rot_btn)
-    layout.addLayout(btn_layout)
+    left_rot_btn.setEnabled(False)
+    right_rot_btn.setEnabled(False)
+    layout_of_btns.addWidget(left_rot_btn)
+    layout_of_btns.addWidget(right_rot_btn)
+
+    layout.addLayout(layout_of_btns)
 
     view = pqg.ImageView()
     view.ui.roiBtn.hide()
     view.ui.menuBtn.hide()
     layout.addWidget(view)
 
-    grid.addWidget(container, row_grid, col_grid)
+    grid.addWidget(container, row_in_grid, col_in_grid)
 
-    return view, left_rot_btn, right_rot_btn
+    return view, center_image_btn, left_rot_btn, right_rot_btn
 
 class VolumeView(QWidget):
     def __init__(self):
         super().__init__()
         self.vm = VolumeViewModel()
         self.dimVoxel = (0.5, 0.5, 0.5)
+
         """
-        PRESETTING per rendere scorrevoli le finestre
+        PRESETTING per rendere scorrevoli le finestre e far apparire tutte le viste e pulsanti
         """
         self.scroll_area = QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)#larghezza adattabile
@@ -83,9 +88,9 @@ class VolumeView(QWidget):
         self.grid.addWidget(self.view_sliceZ, 1, 1)
         """
 
-        self.view_sliceX, self.btn_X_left, self.btn_X_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 0, 1)
-        self.view_sliceY, self.btn_Y_left, self.btn_Y_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 1, 0)
-        self.view_sliceZ, self.btn_Z_left, self.btn_Z_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 1)
+        self.view_sliceX, self.btn_center_imageX, self.btn_X_rot_left, self.btn_X_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 0, 1)
+        self.view_sliceY, self.btn_center_imageY, self.btn_Y_rotLeft, self.btn_Y_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 1, 0)
+        self.view_sliceZ, self.btn_center_imageZ, self.btn_Z_rotLeft, self.btn_Z_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 1)
 
         self.grid.setRowStretch(0, 1)
         self.grid.setRowStretch(1, 1)
@@ -97,6 +102,63 @@ class VolumeView(QWidget):
             view.ui.roiBtn.hide()
             view.ui.menuBtn.hide()
 
+
+        """
+        SETTAGGIO LINEE ROSSE PER UNWRAPPING
+        """
+        #widget per farle apparire
+        self.lbl_coordinates = QLabel("Coordinate ROI: ")
+        self.lbl_coordinates.setStyleSheet("color: blue; font-weight: bold;")
+        self.lbl_coordinates.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.main_layout.addWidget(self.lbl_coordinates)
+
+        #inizializiamo il pulsante per attivare/disattivare le linee
+        #quindi attivare o disattivare la selezione delle coordinate per l'unwrapping
+        self.btn_toggle_roi = QPushButton("Attiva Mirino (ROI)")
+        self.btn_toggle_roi.setCheckable(True) # Diventa un bottone on/off
+        self.btn_toggle_roi.setEnabled(False)  # Disabilitato finché non c'è un'immagine
+        self.main_layout.addWidget(self.btn_toggle_roi)
+
+        # Creazione delle linee rosse come InfiniteLine
+        # Sulla vista Z (Assiale) definiamo il rettangolo X-Y (Top, Bottom, Left, Right)
+        self.line_Zview_topY = pqg.InfiniteLine(angle = 0, movable = True, pen = 'r')
+        self.line_Zview_bottomY = pqg.InfiniteLine(angle = 0, movable = True, pen = 'b', hoverPen = 'b')
+        self.line_Zview_leftX = pqg.InfiniteLine(angle = 90, movable = True, pen = 'b', hoverPen = 'b')
+        self.line_Zview_rightX = pqg.InfiniteLine(angle = 90, movable = True, pen = 'r')
+
+        # Sulla vista Y (Coronale) definiamo il taglio in profondità Z
+        self.line_Yview_topZ = pqg.InfiniteLine(angle = 0, movable = True, pen = 'r')
+        self.line_Yview_bottomZ = pqg.InfiniteLine(angle = 0, movable = True, pen = 'b', hoverPen = 'b')
+
+        self.all_lines = [
+            self.line_Zview_topY, self.line_Zview_bottomY, self.line_Zview_leftX, self.line_Zview_rightX,
+            self.line_Yview_topZ, self.line_Yview_bottomZ
+        ]
+
+        # Aggiungiamo le linee alle rispettive viste (nascoste all'inizio)
+        #sono item interni ad esse
+        self.view_sliceZ.addItem(self.line_Zview_topY)
+        self.view_sliceZ.addItem(self.line_Zview_bottomY)
+        self.view_sliceZ.addItem(self.line_Zview_leftX)
+        self.view_sliceZ.addItem(self.line_Zview_rightX)
+        
+        self.view_sliceY.addItem(self.line_Yview_topZ)
+        self.view_sliceY.addItem(self.line_Yview_bottomZ)
+        
+        #Aggiorna i bounds tra le linee, dopodiché attiva la funzione che (vedi sotto)
+        #Aggiorna il valore delle coordinate quando si muovono con la connessione d'attesa
+        for line in self.all_lines:
+            line.hide()#evita che appaiano all'avvio del programma
+            line.sigPositionChanged.connect(self._update_bounds_and_label)
+        
+        # Connessione per mostrare/nascondere le linee
+        self.btn_toggle_roi.toggled.connect(self._toggle_roi_lines)
+
+        self.btn_reset_roi = QPushButton("Resetta posizione linee")
+        self.btn_reset_roi.setEnabled(False)
+        self.main_layout.addWidget(self.btn_reset_roi)
+
+
         """
         UNWRAPPING
         """
@@ -107,7 +169,7 @@ class VolumeView(QWidget):
         self.unwrapContainer = QWidget()#il contenitore delle 4
         self.unwrapContainer.setMinimumHeight(300)
         self.unwrap_layout = QHBoxLayout(self.unwrapContainer)
-        self.unwrap_layout.setContentsMargins(0,0,0,0)
+        self.unwrap_layout.setContentsMargins(0, 0, 0, 0)
         self.unwrapped_views = []
         for _ in range(4):
             this_view = pqg.ImageView()
@@ -121,18 +183,24 @@ class VolumeView(QWidget):
 
         """
         CONNESSIONI
+        NB: quando si passano dei parametri alla funzione chiamata al momento del click è necessario usare "lambda:"
         """
         self.import_btn.clicked.connect(self._open_file_dialog)
         self.vm.volume_loaded.connect(self._setGridImage)
 
-        self.btn_X_left.clicked.connect(lambda: self._rotate_view(self.view_sliceX, -90))
+        self.btn_X_rot_left.clicked.connect(lambda: self._rotate_view(self.view_sliceX, -90))
         self.btn_X_right.clicked.connect(lambda: self._rotate_view(self.view_sliceX, 90))
-        
-        self.btn_Y_left.clicked.connect(lambda: self._rotate_view(self.view_sliceY, -90))
+        self.btn_Y_rotLeft.clicked.connect(lambda: self._rotate_view(self.view_sliceY, -90))
         self.btn_Y_right.clicked.connect(lambda: self._rotate_view(self.view_sliceY, 90))
-        
-        self.btn_Z_left.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, -90))
+        self.btn_Z_rotLeft.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, -90))
         self.btn_Z_right.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, 90))
+
+        self.btn_center_imageX.clicked.connect(lambda: self.view_sliceX.getView().autoRange())
+        self.btn_center_imageY.clicked.connect(lambda: self.view_sliceY.getView().autoRange())
+        self.btn_center_imageZ.clicked.connect(lambda: self.view_sliceZ.getView().autoRange())
+
+        self.btn_toggle_roi.clicked.connect(self._toggle_roi_lines)
+        self.btn_reset_roi.clicked.connect(lambda: self._toggle_roi_lines(True))
 
         self.unwrapping_btn.clicked.connect(self.vm.unwrap_current_volume)
         self.vm.volume_unwrapped.connect(self._show_unwrapped_image)
@@ -156,11 +224,6 @@ class VolumeView(QWidget):
         self.view_sliceY.setImage(np.transpose(tiff_volume_array, (1, 0, 2)))
         self.view_sliceZ.setImage(np.transpose(tiff_volume_array, (2, 0, 1)))
 
-        """
-        self.view_sliceX.getView().invertX(True)
-        self.view_sliceX.getImageItem().setRotation(90)
-        """
-
         #Settaggio del 3D
         self.view_3d.clear()
         self.view_3d.set_background("black")
@@ -179,15 +242,87 @@ class VolumeView(QWidget):
         self.view_3d.reset_camera()#per centrare la camera sul pezzo di legno
         self.view_3d.update()#forza il refresh visivo
         """
+
+        self.view_sliceX.getView().invertY(False)
+        self.view_sliceY.getView().invertY(False)
+        self.view_sliceZ.getView().invertY(False)
+
+        self.btn_center_imageX.setEnabled(True)
+        self.btn_center_imageY.setEnabled(True)
+        self.btn_center_imageZ.setEnabled(True)
+
+        self.
+
+        self.btn_toggle_roi.setEnabled(True)
         self.unwrapping_btn.setEnabled(True)
 
     def _rotate_view(self, rotating_view, degrees):
-        item = rotating_view.getImageItem()
-        current_rotation = item.rotation()
-        item.setRotation((current_rotation + degrees) % 360)
+        #la rotazione dell'immagine deve in realtà coinvolgere l'intera vista, altrimenti la linee si troveranno in posizione indesiderata
+        view_box = rotating_view.getView()#prende la vista così com'è
+        current_rotation = view_box.getState().get('rotation', 0)#restituisce lo stato corrente in termini di rotazione, 0 se non è ruotata
+        
+        new_rotation = (current_rotation + degrees) % 360
+        view_box.rotateTo(new_rotation)
 
     def _show_popup_error_occurred(self, msg: str):
         QMessageBox.critical(self, "Errore", msg)
+
+    def _toggle_roi_lines(self, checked):
+        """Mostra o nasconde le linee rosse."""
+        self.btn_toggle_roi.setText("Disattiva Mirino (ROI)" if checked else "Attiva Mirino (ROI)")
+        
+        if checked:
+            # Posizioniamo le LINEE AL CENTRO per renderle visibili al primo click
+            center_x = self.view_sliceZ.getImageItem().width() / 2
+            center_y = self.view_sliceZ.getImageItem().height() / 2
+            center_z = self.view_sliceY.getImageItem().height() / 2
+            
+            self.line_Zview_leftX.setValue(center_x - 50)
+            self.line_Zview_rightX.setValue(center_x + 50)
+            self.line_Zview_topY.setValue(center_y + 50)
+            self.line_Zview_bottomY.setValue(center_y - 50)
+            
+            self.line_Yview_topZ.setValue(center_z + 50)
+            self.line_Yview_bottomZ.setValue(center_z - 50)
+            
+            for line in self.all_lines:
+                line.show()
+            self._update_roi_label()
+            self.btn_reset_roi.setEnabled(True)
+        else:
+            for line in self.all_lines:
+                line.hide()
+            self.lbl_coordinates.setText("Coordinate ROI: (Inattive)")
+            self.btn_reset_roi.setEnabled(False)
+
+    def _update_roi_label(self):
+        """Legge la posizione delle linee e aggiorna la label testuale."""
+        # I valori castati a intero rappresentano i pixel di taglio
+        z_top = int(self.line_Yview_topZ.value())
+        z_bottom = int(self.line_Yview_bottomZ.value())
+        y_bottom = int(self.line_Zview_bottomY.value())
+        y_top = int(self.line_Zview_topY.value())
+        x_left = int(self.line_Zview_leftX.value())
+        x_right = int(self.line_Zview_rightX.value())
+
+        self.lbl_coordinates.setText(
+            f"Coordinate Taglio -> X:[{x_left} a {x_right}] | Y:[{y_bottom} a {y_top}] | Z:[{z_bottom} a {z_top}]"
+        )
+
+    def _update_bounds_and_label(self):
+        # Impedisce a ZBottom (blu) di salire sopra ZTop (rossa) e viceversa
+        self.line_Yview_bottomZ.setBounds([None, self.line_Yview_topZ.value()])
+        self.line_Yview_topZ.setBounds([self.line_Yview_bottomZ.value(), None])
+        
+        # Limiti per l'asse Y nella vista Z
+        self.line_Zview_bottomY.setBounds([None, self.line_Zview_topY.value()])
+        self.line_Zview_topY.setBounds([self.line_Zview_bottomY.value(), None])
+        
+        # Limiti per l'asse X nella vista Z (Sinistra non può superare Destra)
+        self.line_Zview_leftX.setBounds([None, self.line_Zview_rightX.value()])
+        self.line_Zview_rightX.setBounds([self.line_Zview_leftX.value(), None])
+
+        self._update_roi_label()
 
     def _show_unwrapped_image(self, faces_list: list):
         self.unwrapContainer.show()
