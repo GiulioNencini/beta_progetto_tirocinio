@@ -88,9 +88,9 @@ class VolumeView(QWidget):
         self.grid.addWidget(self.view_sliceZ, 1, 1)
         """
 
-        self.view_sliceX, self.btn_center_imageX, self.btn_X_rot_left, self.btn_X_rot_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 0, 1)
-        self.view_sliceY, self.btn_center_imageY, self.btn_Y_rot_left, self.btn_Y_rot_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 1, 0)
-        self.view_sliceZ, self.btn_center_imageZ, self.btn_Z_rot_left, self.btn_Z_rot_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 1)
+        self.view_sliceZ, self.btn_center_imageZ, self.btn_Z_rot_left, self.btn_Z_rot_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 0)
+        self.view_sliceX, self.btn_center_imageX, self.btn_X_rot_left, self.btn_X_rot_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 1, 1)
+        self.view_sliceY, self.btn_center_imageY, self.btn_Y_rot_left, self.btn_Y_rot_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 0, 1)
 
         self.grid.setRowStretch(0, 1)
         self.grid.setRowStretch(1, 1)
@@ -202,7 +202,7 @@ class VolumeView(QWidget):
         self.btn_toggle_roi.clicked.connect(self._toggle_roi_lines)
         self.btn_reset_roi.clicked.connect(lambda: self._toggle_roi_lines(True))
 
-        self.unwrapping_btn.clicked.connect(self.vm.unwrap_current_volume)
+        self.unwrapping_btn.clicked.connect(lambda: self.vm._unwrap_current_volume(self.unwrapping_values))
         self.vm.volume_unwrapped.connect(self._show_unwrapped_image)
 
         self.vm.error_occurred.connect(self._show_popup_error_occurred)
@@ -213,16 +213,16 @@ class VolumeView(QWidget):
                                                    "",
                                                    ".tiff images (*.tiff *.tif)")#il _ è perché la funzione _open_file_dialog di base restituisce una tupla di 2 elementi
         if file_path:
-            self.vm.load_tiff(file_path)#funzione nel ViewModel
+            self.vm._load_tiff(file_path)#funzione nel ViewModel
 
     def _setGridImage(self, tiff_volume_array : object): #questa funzione si occupera di proiettare le sezioni dell'immagine .tiff in tutte le sue prospettive-
         self.unwrapContainer.hide()
         #Settaggio del 2D
         import numpy as np
         
-        self.view_sliceX.setImage(tiff_volume_array) #letteralmente un setter
+        self.view_sliceX.setImage(np.transpose(tiff_volume_array, (2, 0, 1))) #letteralmente un setter
         self.view_sliceY.setImage(np.transpose(tiff_volume_array, (1, 0, 2)))
-        self.view_sliceZ.setImage(np.transpose(tiff_volume_array, (2, 0, 1)))
+        self.view_sliceZ.setImage(tiff_volume_array)
 
         #Settaggio del 3D
         self.view_3d.clear()
@@ -259,7 +259,14 @@ class VolumeView(QWidget):
         self.btn_Z_rot_right.setEnabled(True)
 
         self.btn_toggle_roi.setEnabled(True)
-        self.unwrapping_btn.setEnabled(True)
+
+        #Impostazione di sicurezza di valori di default per le coordinate di unwrapping
+        z_max, y_max, x_max = tiff_volume_array.shape
+        self.unwrapping_values = {
+            'X': (0, x_max - 1),
+            'Y': (0, y_max - 1),
+            'Z': (0, z_max - 1)
+        }
 
     def _rotate_view(self, rotating_view, degrees):
         """
@@ -302,13 +309,15 @@ class VolumeView(QWidget):
             
             for line in self.all_lines:
                 line.show()
-            self._update_roi_label()
+            self._update_roi_label()#serve anche per settere i valori di deafult per l'unwrapping
             self.btn_reset_roi.setEnabled(True)
+            self.unwrapping_btn.setEnabled(True)
         else:
             for line in self.all_lines:
                 line.hide()
             self.lbl_coordinates.setText("Coordinate di taglio disattivate")
             self.btn_reset_roi.setEnabled(False)
+            self.unwrapping_btn.setEnabled(False)
 
     def _update_roi_label(self):
         """Legge la posizione delle linee e aggiorna la label testuale."""
@@ -323,6 +332,8 @@ class VolumeView(QWidget):
         self.lbl_coordinates.setText(
             f"Coordinate Taglio -> X:[{x_left} a {x_right}] | Y:[{y_bottom} a {y_top}] | Z:[{z_bottom} a {z_top}]"
         )
+
+        self.unwrapping_values = {'X': (x_left, x_right), 'Y': (y_bottom, y_top), 'Z': (z_bottom, z_top)}
 
     def _update_bounds_and_label(self):
         # Impedisce a ZBottom (blu) di salire sopra ZTop (rossa) e viceversa

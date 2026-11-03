@@ -19,7 +19,7 @@ class VolumeViewModel(QObject):
             raise mex.InvalidTiffShape()
 
     @Slot()
-    def load_tiff(self, file_path: str):
+    def _load_tiff(self, file_path: str):
         try:
             self._loadTiffWithCheck(file_path)
             #print(f"Shape del TIFF: {self.current_volume.shape}")
@@ -29,21 +29,31 @@ class VolumeViewModel(QObject):
         except Exception as e:
             self.error_occurred.emit(f"Errore durante l'importazione: {str(e)}")
 
-    @Slot()
-    def unwrap_current_volume(self):
-        if self.current_volume is None:
+    @Slot(dict)
+    def _unwrap_current_volume(self, unwrapping_values : dict):
+        if self.current_volume is None or unwrapping_values is None:
             self.error_occurred.emit("Impossibile eseguire l'unwrapping se non è caricato alcun file .tiff")
             return
 
         try:
             # Slicing delle 4 facce esterne come hai richiesto
             # NOTA: PyQtGraph gestisce in automatico la normalizzazione, quindi la matrice può subito essere gestita come segue
-            face_1 = self.current_volume[:, 0, :]
-            face_2 = self.current_volume[:, :, 0]
-            face_3 = self.current_volume[:, -1, :]
-            face_4 = self.current_volume[:, :, -1]
+            uvs = unwrapping_values
+            x_left, x_right = uvs['X']
+            y_bottom, y_top = uvs['Y']
+            z_bottom, z_top = uvs['Z']
+
+            # NOTA: In NumPy e nei TIFF volumetrici, le matrici 3D seguono l'ordinamento delle dimensioni (Z, Y, X),
+            # ovvero (Fette/Profondità, Righe, Colonne). Di conseguenza, il primo indice dell'array controlla l'asse Z 
+            # (lo sviluppo longitudinale dello stack), il secondo l'asse Y (verticale) e il terzo l'asse X (orizzontale).
+
+            face_1 = self.current_volume[z_bottom : z_top, y_top, x_left : x_right]
+            face_2 = self.current_volume[z_bottom : z_top, y_bottom : y_top, x_right]
+            face_3 = self.current_volume[z_bottom : z_top, y_bottom, x_left : x_right]
+            face_4 = self.current_volume[z_bottom : z_top, y_bottom : y_top, x_left]
             
             # Emettiamo la lista delle 4 facce
             self.volume_unwrapped.emit([face_1, face_2, face_3, face_4])
+
         except Exception as e:
             self.error_occurred.emit(f"Errore durante l'unwrap: {str(e)}")
