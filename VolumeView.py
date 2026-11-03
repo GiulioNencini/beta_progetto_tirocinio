@@ -88,9 +88,9 @@ class VolumeView(QWidget):
         self.grid.addWidget(self.view_sliceZ, 1, 1)
         """
 
-        self.view_sliceX, self.btn_center_imageX, self.btn_X_rot_left, self.btn_X_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 0, 1)
-        self.view_sliceY, self.btn_center_imageY, self.btn_Y_rotLeft, self.btn_Y_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 1, 0)
-        self.view_sliceZ, self.btn_center_imageZ, self.btn_Z_rotLeft, self.btn_Z_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 1)
+        self.view_sliceX, self.btn_center_imageX, self.btn_X_rot_left, self.btn_X_rot_right = create_titled_view("Vista Asse X (Sagittale)", self.grid, 0, 1)
+        self.view_sliceY, self.btn_center_imageY, self.btn_Y_rot_left, self.btn_Y_rot_right = create_titled_view("Vista Asse Y (Coronale)", self.grid, 1, 0)
+        self.view_sliceZ, self.btn_center_imageZ, self.btn_Z_rot_left, self.btn_Z_rot_right = create_titled_view("Vista Asse Z (Assiale)", self.grid, 1, 1)
 
         self.grid.setRowStretch(0, 1)
         self.grid.setRowStretch(1, 1)
@@ -189,11 +189,11 @@ class VolumeView(QWidget):
         self.vm.volume_loaded.connect(self._setGridImage)
 
         self.btn_X_rot_left.clicked.connect(lambda: self._rotate_view(self.view_sliceX, -90))
-        self.btn_X_right.clicked.connect(lambda: self._rotate_view(self.view_sliceX, 90))
-        self.btn_Y_rotLeft.clicked.connect(lambda: self._rotate_view(self.view_sliceY, -90))
-        self.btn_Y_right.clicked.connect(lambda: self._rotate_view(self.view_sliceY, 90))
-        self.btn_Z_rotLeft.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, -90))
-        self.btn_Z_right.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, 90))
+        self.btn_X_rot_right.clicked.connect(lambda: self._rotate_view(self.view_sliceX, 90))
+        self.btn_Y_rot_left.clicked.connect(lambda: self._rotate_view(self.view_sliceY, -90))
+        self.btn_Y_rot_right.clicked.connect(lambda: self._rotate_view(self.view_sliceY, 90))
+        self.btn_Z_rot_left.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, -90))
+        self.btn_Z_rot_right.clicked.connect(lambda: self._rotate_view(self.view_sliceZ, 90))
 
         self.btn_center_imageX.clicked.connect(lambda: self.view_sliceX.getView().autoRange())
         self.btn_center_imageY.clicked.connect(lambda: self.view_sliceY.getView().autoRange())
@@ -251,18 +251,33 @@ class VolumeView(QWidget):
         self.btn_center_imageY.setEnabled(True)
         self.btn_center_imageZ.setEnabled(True)
 
-        self.
+        self.btn_X_rot_left.setEnabled(True)
+        self.btn_X_rot_right.setEnabled(True)
+        self.btn_Y_rot_left.setEnabled(True)
+        self.btn_Y_rot_right.setEnabled(True)
+        self.btn_Z_rot_left.setEnabled(True)
+        self.btn_Z_rot_right.setEnabled(True)
 
         self.btn_toggle_roi.setEnabled(True)
         self.unwrapping_btn.setEnabled(True)
 
     def _rotate_view(self, rotating_view, degrees):
-        #la rotazione dell'immagine deve in realtà coinvolgere l'intera vista, altrimenti la linee si troveranno in posizione indesiderata
-        view_box = rotating_view.getView()#prende la vista così com'è
-        current_rotation = view_box.getState().get('rotation', 0)#restituisce lo stato corrente in termini di rotazione, 0 se non è ruotata
+        """
+        Ruota l'inquadratura generale della scena (la vera 'telecamera').
+        Questo evita che l'immagine esca dallo schermo e mantiene
+        intatte le coordinate logiche per l'unwrapping e le linee.
+        """
+        view_box = rotating_view.getView()
         
-        new_rotation = (current_rotation + degrees) % 360
-        view_box.rotateTo(new_rotation)
+        # Recupera il vero widget 'schermo' (QGraphicsView) che contiene la scena
+        graphics_view = view_box.scene().views()[0]
+        
+        # Ruota la telecamera (in Qt, .rotate() somma automaticamente i gradi,
+        # quindi non c'è più bisogno di tracciare la current_rotation)
+        graphics_view.rotate(degrees)
+        
+        # Forza l'immagine a riadattarsi ai nuovi confini dello schermo
+        view_box.autoRange()
 
     def _show_popup_error_occurred(self, msg: str):
         QMessageBox.critical(self, "Errore", msg)
@@ -292,7 +307,7 @@ class VolumeView(QWidget):
         else:
             for line in self.all_lines:
                 line.hide()
-            self.lbl_coordinates.setText("Coordinate ROI: (Inattive)")
+            self.lbl_coordinates.setText("Coordinate di taglio disattivate")
             self.btn_reset_roi.setEnabled(False)
 
     def _update_roi_label(self):
