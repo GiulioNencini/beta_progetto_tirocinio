@@ -17,7 +17,6 @@ def create_titled_view(title_text, grid, col_in_grid, row_in_grid):
     tit_lbl.setStyleSheet("background-color: #333; color: white; font-weight: bold; padding: 4px;")
     tit_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(tit_lbl)
-
     layout_of_btns = QHBoxLayout()
 
     center_image_btn = QPushButton("Centra l'immagine")
@@ -95,7 +94,7 @@ class MainView(QWidget):
         #inizializiamo il pulsante per attivare/disattivare le linee
         #quindi attivare o disattivare la selezione delle coordinate per l'unwrapping
         self.btn_toggle_roi = QPushButton("Attiva Mirino (ROI)")
-        self.btn_toggle_roi.setCheckable(True) # Diventa un bottone on/off
+        self.btn_toggle_roi.setCheckable(True) # Diventa un bottone on/off - controlli con isChecked()
         self.btn_toggle_roi.setEnabled(False)  # Disabilitato finché non c'è un'immagine
         self.main_layout.addWidget(self.btn_toggle_roi)
 
@@ -111,14 +110,13 @@ class MainView(QWidget):
         COLLEGAMENTO ALLE ALTRE CLASSI
             Necessario farlo dopo la creazione delle viste e dei pulsanti ROI
         """
-        self.roi_manager = ROIManager(self.view_sliceX, self.view_sliceY, self.view_sliceZ, 
-                                      self.vm, self.main_layout, 
-                                      self.btn_toggle_roi, self.btn_reset_roi, self.unwrapping_btn)
+        self.roi_manager = None
         
         
         """
         CONNESSIONI
         NB: quando si passano dei parametri alla funzione chiamata al momento del click è necessario usare "lambda:"
+        NOTA: Alcune connessioni sono situate in fondo a setGridImage()
         """
         self.import_btn.clicked.connect(self._open_file_dialog)
         self.vm.volume_loaded.connect(self._setGridImage)
@@ -133,9 +131,6 @@ class MainView(QWidget):
         self.btn_center_imageX.clicked.connect(lambda: self.view_sliceX.getView().autoRange())
         self.btn_center_imageY.clicked.connect(lambda: self.view_sliceY.getView().autoRange())
         self.btn_center_imageZ.clicked.connect(lambda: self.view_sliceZ.getView().autoRange())
-
-        self.btn_toggle_roi.clicked.connect(self.roi_manager._toggle_roi_lines)
-        self.btn_reset_roi.clicked.connect(lambda: self.roi_manager._toggle_roi_lines(True))
         
         self.unwrapping_btn.clicked.connect(lambda: self.vm._unwrap_current_volume(self.roi_manager.get_cut_coordinates()))
         self.vm.volume_unwrapped.connect(self._show_unwrapped_image)
@@ -200,13 +195,18 @@ class MainView(QWidget):
 
         self.btn_toggle_roi.setEnabled(True)
 
-        #Impostazione di sicurezza di valori di default per le coordinate di unwrapping
-        z_max, y_max, x_max = tiff_volume_array.shape
-        self.unwrapping_values = {
-            'Z': (0, z_max - 1),
-            'Y': (0, y_max - 1),
-            'X': (0, x_max - 1)
-        }
+        self.roi_manager = ROIManager(self.view_sliceX, self.view_sliceY, self.view_sliceZ, 
+                                              self.vm, self.main_layout, 
+                                              self.btn_toggle_roi, self.btn_reset_roi, self.unwrapping_btn)
+        
+        try: 
+            self.btn_toggle_roi.toggled.disconnect()
+        except RuntimeError: 
+            pass
+        
+        #self.btn_toggle_roi.clicked.connect(lambda: self.roi_manager._toggle_roi_lines())
+        self.btn_toggle_roi.toggled.connect(self.roi_manager._toggle_roi_lines)
+        self.btn_reset_roi.clicked.connect(lambda: self.roi_manager._reset_roi_lines())
 
     def _rotate_view(self, rotating_view, degrees):
         """

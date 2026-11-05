@@ -1,6 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import tifffile
 import myExceptions as mex
+import numpy as np
 
 class VolumeViewModel(QObject):
     volume_loaded = Signal(object)
@@ -47,11 +48,19 @@ class VolumeViewModel(QObject):
             # ovvero (Fette/Profondità, Righe, Colonne). Di conseguenza, il primo indice dell'array controlla l'asse Z 
             # (lo sviluppo longitudinale dello stack), il secondo l'asse Y (verticale) e il terzo l'asse X (orizzontale).
 
+            
+            # np.rot90(..., 2) ruota la faccia 2D estratta di 180 gradi
+            face_1 = np.rot90(self.current_volume[z_left : z_right, y_top, x_bottom : x_top], 2)
+            face_2 = np.rot90(self.current_volume[z_left : z_right, y_bottom : y_top, x_top], 2)
+            face_3 = np.rot90(self.current_volume[z_left : z_right, y_bottom, x_bottom : x_top], 2)
+            face_4 = np.rot90(self.current_volume[z_left : z_right, y_bottom : y_top, x_bottom], 2)
+            
+            """
             face_1 = self.current_volume[z_left : z_right, y_top, x_bottom : x_top]
             face_2 = self.current_volume[z_left : z_right, y_bottom : y_top, x_top]
             face_3 = self.current_volume[z_left : z_right, y_bottom, x_bottom : x_top]
             face_4 = self.current_volume[z_left : z_right, y_bottom : y_top, x_bottom]
-            
+            """
             # Emettiamo la lista delle 4 facce
             self.volume_unwrapped.emit([face_1, face_2, face_3, face_4])
 

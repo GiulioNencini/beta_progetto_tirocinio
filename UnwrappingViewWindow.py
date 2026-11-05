@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt
 import pyqtgraph as pqg
 
 """
-DOVE SI VISUALIZZATO I RISULTATI DELL'UNWRAPPING, è una vista che appare in una finestra separata
+DOVE SI VISUALIZZANO I RISULTATI DELL'UNWRAPPING, è una vista che appare in una finestra separata
 """
 
 class UnwrappingViewWindow(QWidget):
@@ -28,7 +28,7 @@ class UnwrappingViewWindow(QWidget):
 
             view = pqg.ImageView()
             view.ui.roiBtn.hide()
-            view.ui.menuBtn.hide()
+            #view.ui.menuBtn.hide()
 
             #view.getView().setMouseEnabled(x = False, y = False)
             view.setMinimumHeight(250)
