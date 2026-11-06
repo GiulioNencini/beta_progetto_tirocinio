@@ -2,13 +2,17 @@ from PySide6.QtCore import QObject, Signal, Slot
 import tifffile
 import myExceptions as mex
 import numpy as np
+import pyqtgraph.exporters
+from PySide6.QtWidgets import QMessageBox
 
-class VolumeViewModel(QObject):
+class MainViewModel(QObject):
     volume_loaded = Signal(object)
 
     error_occurred = Signal(str)
 
     volume_unwrapped = Signal(list)
+
+    unwrapped_saved = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -49,20 +53,27 @@ class VolumeViewModel(QObject):
             # (lo sviluppo longitudinale dello stack), il secondo l'asse Y (verticale) e il terzo l'asse X (orizzontale).
 
             
-            # np.rot90(..., 2) ruota la faccia 2D estratta di 180 gradi
-            face_1 = np.rot90(self.current_volume[z_left : z_right, y_top, x_bottom : x_top], 2)
-            face_2 = np.rot90(self.current_volume[z_left : z_right, y_bottom : y_top, x_top], 2)
-            face_3 = np.rot90(self.current_volume[z_left : z_right, y_bottom, x_bottom : x_top], 2)
-            face_4 = np.rot90(self.current_volume[z_left : z_right, y_bottom : y_top, x_bottom], 2)
-            
-            """
+            # ribalta l'immagine rispetto alla sue
             face_1 = self.current_volume[z_left : z_right, y_top, x_bottom : x_top]
             face_2 = self.current_volume[z_left : z_right, y_bottom : y_top, x_top]
             face_3 = self.current_volume[z_left : z_right, y_bottom, x_bottom : x_top]
             face_4 = self.current_volume[z_left : z_right, y_bottom : y_top, x_bottom]
-            """
+
             # Emettiamo la lista delle 4 facce
             self.volume_unwrapped.emit([face_1, face_2, face_3, face_4])
 
         except Exception as e:
             self.error_occurred.emit(f"Errore durante l'unwrap: {str(e)}")
+
+    def _export_unwrapped_image(self, file_path, right_view):
+        try:
+            # Utilizziamo l'esportatore interno di PyQtGraph
+            # Così salverà la matrice con le esatte regolazioni colore/istogramma impostate visivamente dall'utente
+            image_item = right_view.getImageItem()
+            exporter = pyqtgraph.exporters.ImageExporter(image_item)
+            
+            # Risolve eventuali bug di pyqtgraph sulle dimensioni di esportazione forzando la lettura nativa
+            exporter.export(file_path)
+            self.unwrapped_saved.emit(f"Immagine salvata correttamente in:\n{file_path}")# TODO mettere questi nella view, qui si metterà un emit
+        except Exception as e:
+            self.error_occurred.emit(f"Si è verificato un errore durante l'esportazione:\n{str(e)}")

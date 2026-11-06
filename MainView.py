@@ -2,7 +2,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt
 from pyvistaqt import QtInteractor
 import pyqtgraph as pqg
-from MainViewModel import *
+from MainViewModel import MainViewModel
 from ROIManager import ROIManager
 from UnwrappingViewWindow import UnwrappingViewWindow
 import pyvista as pv
@@ -44,7 +44,7 @@ def create_titled_view(title_text, grid, col_in_grid, row_in_grid):
 class MainView(QWidget):
     def __init__(self):
         super().__init__()
-        self.vm = VolumeViewModel()
+        self.vm = MainViewModel()
         self.dimVoxel = (0.5, 0.5, 0.5)
 
         """
@@ -230,5 +230,5 @@ class MainView(QWidget):
         QMessageBox.critical(self, "Errore", msg)
 
     def _show_unwrapped_image(self, faces_list):
-        self.unwrappedImages = UnwrappingViewWindow(faces_list)
-        self.unwrappedImages.show()
+        self.unwrappedImages = UnwrappingViewWindow(faces_list, self.vm)
+        self.unwrappedImages.show()#mostra la classe UnwrappingView, che a sua volta ha una prorpia grafica, un proprio layout
