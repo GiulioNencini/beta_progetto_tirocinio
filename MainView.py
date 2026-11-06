@@ -150,10 +150,16 @@ class MainView(QWidget):
     def _setGridImage(self, tiff_volume_array : object): #questa funzione si occupera di proiettare le sezioni dell'immagine .tiff in tutte le sue prospettive-
         #Settaggio del 2D
         import numpy as np
-        
+
+        """
         self.view_sliceX.setImage(np.transpose(tiff_volume_array, (2, 0, 1))) #letteralmente un setter
         self.view_sliceY.setImage(np.transpose(tiff_volume_array, (1, 0, 2)))
-        self.view_sliceZ.setImage(tiff_volume_array)
+        self.view_sliceZ.setImage(tiff_volume_array)"""
+        # Settaggio del 2D (Ottimizzato: niente più np.transpose)
+        # Passiamo la mappa degli assi nativa (t=slider_fette, x=asse_x_schermo, y=asse_y_schermo)
+        self.view_sliceX.setImage(tiff_volume_array, axes={'t': 2, 'x': 0, 'y': 1}) 
+        self.view_sliceY.setImage(tiff_volume_array, axes={'t': 1, 'x': 0, 'y': 2})
+        self.view_sliceZ.setImage(tiff_volume_array, axes={'t': 0, 'x': 1, 'y': 2})
 
         # Forza le immagini a partire da 0,0 nel sistema logico
         for view in [self.view_sliceX, self.view_sliceY, self.view_sliceZ]:
@@ -194,6 +200,11 @@ class MainView(QWidget):
         self.btn_Z_rot_right.setEnabled(True)
 
         self.btn_toggle_roi.setEnabled(True)
+
+        if self.roi_manager is not None:
+            self.roi_manager.cleanup_ROI()
+            self.btn_toggle_roi.setChecked(False)
+
 
         self.roi_manager = ROIManager(self.view_sliceX, self.view_sliceY, self.view_sliceZ, 
                                               self.vm, self.main_layout, 

@@ -182,3 +182,17 @@ class ROIManager:
         self.line_Yview_leftZ.sigPositionChanged.connect(self._sync_Z_left)
         self.line_Xview_rightZ.sigPositionChanged.connect(self._sync_Z_right)
         self.line_Yview_rightZ.sigPositionChanged.connect(self._sync_Z_right)
+
+    #Questa funzione cancella tutti gli oggetti e valori associati alla ROI di un certo file importato
+    def cleanup_ROI(self):
+        self.lbl_coordinates.deleteLater()
+
+        self.view_sliceX.removeItem(self.line_Xview_topY)
+        self.view_sliceX.removeItem(self.line_Xview_bottomY)
+        self.view_sliceX.removeItem(self.line_Xview_leftZ)
+        self.view_sliceX.removeItem(self.line_Xview_rightZ)
+        
+        self.view_sliceY.removeItem(self.line_Yview_topX)
+        self.view_sliceY.removeItem(self.line_Yview_bottomX)
+        self.view_sliceY.removeItem(self.line_Yview_leftZ)
+        self.view_sliceY.removeItem(self.line_Yview_rightZ)

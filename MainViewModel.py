@@ -74,6 +74,6 @@ class MainViewModel(QObject):
             
             # Risolve eventuali bug di pyqtgraph sulle dimensioni di esportazione forzando la lettura nativa
             exporter.export(file_path)
-            self.unwrapped_saved.emit(f"Immagine salvata correttamente in:\n{file_path}")# TODO mettere questi nella view, qui si metterà un emit
+            self.unwrapped_saved.emit(f"Immagine salvata correttamente in:\n{file_path}")
         except Exception as e:
             self.error_occurred.emit(f"Si è verificato un errore durante l'esportazione:\n{str(e)}")
